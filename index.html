@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CircleHub</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">CircleHub</div>
+      <input id="searchInput" type="search" placeholder="Search people, posts, topics" />
+      <button id="themeToggle" class="secondary">Toggle Theme</button>
+    </header>
+
+    <main class="layout">
+      <aside class="panel">
+        <section>
+          <h2>My Profile</h2>
+          <div class="profile-card">
+            <img src="https://picsum.photos/seed/profile/100" alt="Profile avatar" />
+            <div>
+              <h3 id="profileName">Alex Morgan</h3>
+              <p>Product designer • Austin</p>
+              <p><strong id="connectionCount">0</strong> Connections</p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>Communities</h2>
+          <ul id="communityList" class="clean-list"></ul>
+        </section>
+
+        <section>
+          <h2>Events</h2>
+          <ul id="eventList" class="clean-list"></ul>
+        </section>
+      </aside>
+
+      <section class="feed">
+        <article class="composer card">
+          <h2>Create Post</h2>
+          <form id="postForm">
+            <input id="postTitle" type="text" maxlength="60" placeholder="Title" required />
+            <textarea id="postContent" maxlength="300" placeholder="What's new in your world?" required></textarea>
+            <div class="form-row">
+              <select id="postMood">
+                <option value="🎉 Excited">🎉 Excited</option>
+                <option value="💡 Inspired">💡 Inspired</option>
+                <option value="📢 Sharing">📢 Sharing</option>
+                <option value="🤔 Curious">🤔 Curious</option>
+              </select>
+              <button type="submit">Publish</button>
+            </div>
+          </form>
+        </article>
+
+        <section id="feedList" aria-live="polite"></section>
+      </section>
+
+      <aside class="panel">
+        <section>
+          <h2>People You May Know</h2>
+          <ul id="suggestionList" class="clean-list"></ul>
+        </section>
+
+        <section class="card">
+          <h2>Quick Message</h2>
+          <form id="messageForm">
+            <input id="messageTo" type="text" placeholder="To" required />
+            <textarea id="messageText" maxlength="200" placeholder="Type your message" required></textarea>
+            <button type="submit">Send</button>
+          </form>
+          <ul id="messageLog" class="clean-list small"></ul>
+        </section>
+
+        <section>
+          <h2>Trending Topics</h2>
+          <ul id="trendList" class="clean-list tags"></ul>
+        </section>
+      </aside>
+    </main>
+
+    <template id="postTemplate">
+      <article class="card post">
+        <header>
+          <h3 class="post-title"></h3>
+          <span class="post-meta"></span>
+        </header>
+        <p class="post-content"></p>
+        <footer>
+          <button class="like-btn secondary"></button>
+          <button class="comment-btn secondary">Comment</button>
+        </footer>
+        <div class="comment-area hidden">
+          <form class="comment-form">
+            <input type="text" class="comment-input" maxlength="120" placeholder="Add a comment" required />
+            <button type="submit">Post</button>
+          </form>
+          <ul class="comment-list clean-list small"></ul>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
