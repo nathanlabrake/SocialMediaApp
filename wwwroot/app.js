@@ -1,198 +1,159 @@
-const tokenKey = "circlehub-token";
-let token = localStorage.getItem(tokenKey) || "";
-let selectedUserId = null;
-
 const el = {
-  authCard: document.querySelector("#authCard"),
-  userCard: document.querySelector("#userCard"),
-  usersCard: document.querySelector("#usersCard"),
-  appArea: document.querySelector("#appArea"),
-  messagesArea: document.querySelector("#messagesArea"),
-  authStatus: document.querySelector("#authStatus"),
-  logoutBtn: document.querySelector("#logoutBtn"),
-  loginForm: document.querySelector("#loginForm"),
-  registerForm: document.querySelector("#registerForm"),
-  meName: document.querySelector("#meName"),
-  meEmail: document.querySelector("#meEmail"),
-  usersList: document.querySelector("#usersList"),
-  pendingList: document.querySelector("#pendingList"),
   feedList: document.querySelector("#feedList"),
   postForm: document.querySelector("#postForm"),
+  postTitle: document.querySelector("#postTitle"),
   postContent: document.querySelector("#postContent"),
-  searchUsers: document.querySelector("#searchUsers"),
-  connectionsList: document.querySelector("#connectionsList"),
-  messageList: document.querySelector("#messageList"),
+  postMood: document.querySelector("#postMood"),
+  postTemplate: document.querySelector("#postTemplate"),
+  suggestionList: document.querySelector("#suggestionList"),
+  communityList: document.querySelector("#communityList"),
+  eventList: document.querySelector("#eventList"),
+  trendList: document.querySelector("#trendList"),
   messageForm: document.querySelector("#messageForm"),
-  messageInput: document.querySelector("#messageInput"),
-  chatWith: document.querySelector("#chatWith"),
-  postTemplate: document.querySelector("#postTemplate")
+  messageTo: document.querySelector("#messageTo"),
+  messageText: document.querySelector("#messageText"),
+  messageLog: document.querySelector("#messageLog"),
+  searchInput: document.querySelector("#searchInput"),
+  themeToggle: document.querySelector("#themeToggle"),
+  profileHeadline: document.querySelector("#profileHeadline"),
+  profileName: document.querySelector("#profileName"),
+  connectionCount: document.querySelector("#connectionCount")
 };
 
+const fallback = {
+  profile: { name: "Alex Morgan", headline: "Product designer • Austin", connectionCount: 128 },
+  suggestions: [{ id: 1, name: "Sasha Lee", role: "Frontend engineer", connected: false }],
+  communities: ["Design Critique Club"],
+  events: ["Creator Meetup - Fri"],
+  trends: ["#BuildInPublic"],
+  messages: [],
+  posts: [{ id: 1, title: "Backend unavailable", content: "Run `dotnet run` to enable real DB-backed data.", mood: "⚠️", likes: 0, time: new Date().toISOString(), comments: [] }]
+};
+
+let theme = localStorage.getItem("circlehub-theme") || "light";
+let offlineMode = false;
 init();
 
 async function init() {
-  bindEvents();
-  if (token) {
-    const ok = await hydrateSession();
-    if (!ok) clearSession();
-  }
-}
-
-function bindEvents() {
-  el.loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        email: document.querySelector("#loginEmail").value,
-        password: document.querySelector("#loginPassword").value
-      };
-      const data = await api("/api/auth/login", { method: "POST", body: JSON.stringify(payload) }, false);
-      setSession(data.token);
-      await hydrateSession();
-      el.authStatus.textContent = "Signed in";
-      el.loginForm.reset();
-    } catch {
-      el.authStatus.textContent = "Login failed.";
-    }
-  });
-
-  el.registerForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        name: document.querySelector("#registerName").value,
-        email: document.querySelector("#registerEmail").value,
-        password: document.querySelector("#registerPassword").value
-      };
-      const data = await api("/api/auth/register", { method: "POST", body: JSON.stringify(payload) }, false);
-      setSession(data.token);
-      await hydrateSession();
-      el.authStatus.textContent = "Account created";
-      el.registerForm.reset();
-    } catch {
-      el.authStatus.textContent = "Registration failed.";
-    }
-  });
-
-  el.logoutBtn.addEventListener("click", () => {
-    clearSession();
-    el.authStatus.textContent = "Signed out.";
-  });
-
-  el.postForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    await api("/api/posts", { method: "POST", body: JSON.stringify({ content: el.postContent.value }) });
-    el.postForm.reset();
-    await loadFeed();
-  });
-
-  el.searchUsers.addEventListener("input", () => loadUsers(el.searchUsers.value));
-
-  el.usersList.addEventListener("click", async (e) => {
-    const userId = e.target.dataset.connect;
-    if (!userId) return;
-    await api(`/api/connections/request/${userId}`, { method: "POST" });
-    await loadUsers(el.searchUsers.value);
-  });
-
-  el.pendingList.addEventListener("click", async (e) => {
-    const connectionId = e.target.dataset.accept;
-    if (!connectionId) return;
-    await api(`/api/connections/accept/${connectionId}`, { method: "POST" });
-    await loadConnections();
-    await loadFeed();
-  });
-
-  el.connectionsList.addEventListener("click", async (e) => {
-    const userId = e.target.dataset.chat;
-    const name = e.target.dataset.name;
-    if (!userId) return;
-    selectedUserId = Number(userId);
-    el.chatWith.textContent = `Chat with ${name}`;
-    await loadMessages();
-  });
-
-  el.messageForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (!selectedUserId) return;
-    await api(`/api/messages/${selectedUserId}`, { method: "POST", body: JSON.stringify({ content: el.messageInput.value }) });
-    el.messageInput.value = "";
-    await loadMessages();
-  });
-}
-
-async function hydrateSession() {
+  document.body.classList.toggle("dark", theme === "dark");
   try {
-    const me = await api("/api/me");
-    el.meName.textContent = me.name;
-    el.meEmail.textContent = me.email;
-    setAuthUi(true);
-    await Promise.all([loadUsers(), loadConnections(), loadFeed()]);
-    return true;
+    await renderSidebar();
+    await renderFeed();
   } catch {
-    return false;
+    offlineMode = true;
+    renderFallback();
   }
+  attachEvents();
 }
 
-function setAuthUi(signedIn) {
-  el.authCard.classList.toggle("hidden", signedIn);
-  el.userCard.classList.toggle("hidden", !signedIn);
-  el.usersCard.classList.toggle("hidden", !signedIn);
-  el.appArea.classList.toggle("hidden", !signedIn);
-  el.messagesArea.classList.toggle("hidden", !signedIn);
-  el.logoutBtn.classList.toggle("hidden", !signedIn);
+function renderFallback() {
+  el.profileName.textContent = fallback.profile.name;
+  el.profileHeadline.textContent = fallback.profile.headline;
+  el.connectionCount.textContent = fallback.profile.connectionCount;
+  renderList(el.suggestionList, fallback.suggestions.map((s) => `<li><strong>${s.name}</strong><br><span>${s.role}</span></li>`));
+  renderList(el.communityList, fallback.communities.map((c) => `<li>• ${c}</li>`));
+  renderList(el.eventList, fallback.events.map((event) => `<li>${event}</li>`));
+  renderList(el.trendList, fallback.trends.map((tag) => `<li>${tag}</li>`));
+  renderList(el.messageLog, ["<li>Start backend to enable messaging.</li>"]);
+  renderStaticPosts(fallback.posts);
 }
 
-async function loadUsers(query = "") {
-  const users = await api(`/api/users?q=${encodeURIComponent(query)}`);
-  el.usersList.innerHTML = users.map((u) => `<li><strong>${u.name}</strong><br>${u.email}<br><button class="secondary" data-connect="${u.id}">Connect</button></li>`).join("");
+async function renderSidebar() {
+  const data = await api("/api/bootstrap");
+  el.profileName.textContent = data.profile.name;
+  el.profileHeadline.textContent = data.profile.headline;
+  el.connectionCount.textContent = data.profile.connectionCount;
+
+  renderList(el.suggestionList, data.suggestions.map((s) =>
+    `<li><strong>${s.name}</strong><br><span>${s.role}</span><br>${s.connected ? "Connected" : `<button data-connect="${s.id}" class="secondary">Connect</button>`}</li>`
+  ));
+  renderList(el.communityList, data.communities.map((c) => `<li>• ${c}</li>`));
+  renderList(el.eventList, data.events.map((event) => `<li>${event}</li>`));
+  renderList(el.trendList, data.trends.map((tag) => `<li>${tag}</li>`));
+  renderList(el.messageLog, data.messages.map((m) => `<li><strong>To ${m.to}:</strong> ${m.text}</li>`));
 }
 
-async function loadConnections() {
-  const data = await api("/api/connections");
-  el.pendingList.innerHTML = data.pendingReceived.length
-    ? data.pendingReceived.map((r) => `<li>${r.fromName} <button data-accept="${r.id}">Accept</button></li>`).join("")
-    : "<li>No pending requests</li>";
-
-  el.connectionsList.innerHTML = data.accepted.length
-    ? data.accepted.map((c) => `<li><button class="secondary" data-chat="${c.userId}" data-name="${c.name}">${c.name}</button></li>`).join("")
-    : "<li>No accepted connections yet</li>";
+async function renderFeed() {
+  const q = encodeURIComponent(el.searchInput.value || "");
+  const posts = await api(`/api/posts?q=${q}`);
+  renderStaticPosts(posts);
 }
 
-async function loadFeed() {
-  const posts = await api("/api/feed");
+function renderStaticPosts(posts) {
   el.feedList.innerHTML = "";
-  posts.forEach((p) => {
+  posts.forEach((post) => {
     const node = el.postTemplate.content.firstElementChild.cloneNode(true);
-    node.querySelector(".post-author").textContent = p.author;
-    node.querySelector(".post-time").textContent = new Date(p.createdAt).toLocaleString();
-    node.querySelector(".post-content").textContent = p.content;
+    node.querySelector(".post-title").textContent = `${post.mood} ${post.title}`;
+    node.querySelector(".post-meta").textContent = new Date(post.time).toLocaleString();
+    node.querySelector(".post-content").textContent = post.content;
+    const likeBtn = node.querySelector(".like-btn");
+    likeBtn.textContent = `Like (${post.likes})`;
+
+    if (!offlineMode) {
+      likeBtn.addEventListener("click", async () => {
+        await api(`/api/posts/${post.id}/like`, { method: "POST" });
+        await renderFeed();
+      });
+    }
+
+    const commentArea = node.querySelector(".comment-area");
+    node.querySelector(".comment-btn").addEventListener("click", () => commentArea.classList.toggle("hidden"));
+    renderList(node.querySelector(".comment-list"), post.comments.map((c) => `<li>💬 ${c}</li>`));
+
+    if (!offlineMode) {
+      node.querySelector(".comment-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const input = node.querySelector(".comment-input");
+        await api(`/api/posts/${post.id}/comments`, { method: "POST", body: JSON.stringify({ content: input.value }) });
+        input.value = "";
+        await renderFeed();
+      });
+    }
+
     el.feedList.append(node);
   });
 }
 
-async function loadMessages() {
-  if (!selectedUserId) return;
-  const messages = await api(`/api/messages/${selectedUserId}`);
-  el.messageList.innerHTML = messages.map((m) => `<li>${new Date(m.sentAt).toLocaleTimeString()} • ${m.content}</li>`).join("");
+function attachEvents() {
+  el.postForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (offlineMode) return;
+    await api("/api/posts", { method: "POST", body: JSON.stringify({ title: el.postTitle.value, content: el.postContent.value, mood: el.postMood.value }) });
+    el.postForm.reset();
+    await renderFeed();
+  });
+
+  el.suggestionList.addEventListener("click", async (event) => {
+    if (offlineMode) return;
+    const id = event.target.dataset.connect;
+    if (!id) return;
+    await api(`/api/suggestions/${id}/connect`, { method: "POST" });
+    await renderSidebar();
+  });
+
+  el.messageForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (offlineMode) return;
+    await api("/api/messages", { method: "POST", body: JSON.stringify({ to: el.messageTo.value, text: el.messageText.value }) });
+    el.messageForm.reset();
+    await renderSidebar();
+  });
+
+  el.searchInput.addEventListener("input", () => { if (!offlineMode) renderFeed(); });
+  el.themeToggle.addEventListener("click", () => {
+    theme = theme === "light" ? "dark" : "light";
+    localStorage.setItem("circlehub-theme", theme);
+    document.body.classList.toggle("dark", theme === "dark");
+  });
 }
 
-function setSession(newToken) {
-  token = newToken;
-  localStorage.setItem(tokenKey, token);
+function renderList(target, items) {
+  target.innerHTML = items.join("");
 }
 
-function clearSession() {
-  token = "";
-  localStorage.removeItem(tokenKey);
-  setAuthUi(false);
-}
-
-async function api(url, options = {}, needsAuth = true) {
-  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
-  if (needsAuth && token) headers.Authorization = `Bearer ${token}`;
-
-  const res = await fetch(url, { ...options, headers });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.status === 204 ? null : res.json();
+async function api(url, options = {}) {
+  const response = await fetch(url, { headers: { "Content-Type": "application/json" }, ...options });
+  if (!response.ok) throw new Error(`API error: ${response.status}`);
+  if (response.status === 204) return null;
+  return response.json();
 }
