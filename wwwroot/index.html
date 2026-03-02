@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CircleHub</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">CircleHub</div>
+      <input id="searchUsers" type="search" placeholder="Search users" />
+      <button id="logoutBtn" class="secondary hidden">Logout</button>
+    </header>
+
+    <main class="layout">
+      <aside class="panel">
+        <section class="card" id="authCard">
+          <h2>Sign In</h2>
+          <form id="loginForm">
+            <input id="loginEmail" type="email" placeholder="Email" required />
+            <input id="loginPassword" type="password" placeholder="Password" required />
+            <button type="submit">Sign In</button>
+          </form>
+          <h3>Create Account</h3>
+          <form id="registerForm">
+            <input id="registerName" placeholder="Name" required />
+            <input id="registerEmail" type="email" placeholder="Email" required />
+            <input id="registerPassword" type="password" placeholder="Password" required />
+            <button type="submit">Register</button>
+          </form>
+          <p id="authStatus"></p>
+        </section>
+
+        <section class="card hidden" id="userCard">
+          <h2 id="meName"></h2>
+          <p id="meEmail"></p>
+        </section>
+
+        <section class="card hidden" id="usersCard">
+          <h2>Discover Users</h2>
+          <ul id="usersList" class="clean-list"></ul>
+        </section>
+      </aside>
+
+      <section class="feed hidden" id="appArea">
+        <article class="composer card">
+          <h2>Create Post (Connections feed)</h2>
+          <form id="postForm">
+            <textarea id="postContent" maxlength="280" required placeholder="Share an update with your network"></textarea>
+            <button type="submit">Post</button>
+          </form>
+        </article>
+        <section class="card">
+          <h2>Connection Requests</h2>
+          <ul id="pendingList" class="clean-list"></ul>
+        </section>
+        <section id="feedList"></section>
+      </section>
+
+      <aside class="panel hidden" id="messagesArea">
+        <section class="card">
+          <h2>Connections</h2>
+          <ul id="connectionsList" class="clean-list"></ul>
+        </section>
+        <section class="card">
+          <h2>Messages</h2>
+          <p id="chatWith">Select a connection</p>
+          <ul id="messageList" class="clean-list small"></ul>
+          <form id="messageForm">
+            <input id="messageInput" placeholder="Type message" required />
+            <button type="submit">Send</button>
+          </form>
+        </section>
+      </aside>
+    </main>
+
+    <template id="postTemplate">
+      <article class="card post">
+        <header><h3 class="post-author"></h3><span class="post-time"></span></header>
+        <p class="post-content"></p>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
