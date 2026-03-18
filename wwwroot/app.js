@@ -1,343 +1,159 @@
-const tokenKey = "circlehub-token";
-let token = localStorage.getItem(tokenKey) || "";
-let activeChatUserId = null;
-let refreshTimer = null;
-
 const el = {
-  authCard: document.querySelector("#authCard"),
-  profileCard: document.querySelector("#profileCard"),
-  pendingCard: document.querySelector("#pendingCard"),
-  feedArea: document.querySelector("#feedArea"),
-  socialArea: document.querySelector("#socialArea"),
-  loginForm: document.querySelector("#loginForm"),
-  registerForm: document.querySelector("#registerForm"),
-  logoutBtn: document.querySelector("#logoutBtn"),
-  authStatus: document.querySelector("#authStatus"),
-  meName: document.querySelector("#meName"),
-  meHeadline: document.querySelector("#meHeadline"),
-  meEmail: document.querySelector("#meEmail"),
-  searchUsers: document.querySelector("#searchUsers"),
-  searchFeed: document.querySelector("#searchFeed"),
-  pendingList: document.querySelector("#pendingList"),
-  usersList: document.querySelector("#usersList"),
-  connectionsList: document.querySelector("#connectionsList"),
-  postForm: document.querySelector("#postForm"),
-  postContent: document.querySelector("#postContent"),
   feedList: document.querySelector("#feedList"),
-  feedEmpty: document.querySelector("#feedEmpty"),
-  messageList: document.querySelector("#messageList"),
+  postForm: document.querySelector("#postForm"),
+  postTitle: document.querySelector("#postTitle"),
+  postContent: document.querySelector("#postContent"),
+  postMood: document.querySelector("#postMood"),
+  postTemplate: document.querySelector("#postTemplate"),
+  suggestionList: document.querySelector("#suggestionList"),
+  communityList: document.querySelector("#communityList"),
+  eventList: document.querySelector("#eventList"),
+  trendList: document.querySelector("#trendList"),
   messageForm: document.querySelector("#messageForm"),
-  messageInput: document.querySelector("#messageInput"),
-  chatWith: document.querySelector("#chatWith"),
-  postTemplate: document.querySelector("#postTemplate")
+  messageTo: document.querySelector("#messageTo"),
+  messageText: document.querySelector("#messageText"),
+  messageLog: document.querySelector("#messageLog"),
+  searchInput: document.querySelector("#searchInput"),
+  themeToggle: document.querySelector("#themeToggle"),
+  profileHeadline: document.querySelector("#profileHeadline"),
+  profileName: document.querySelector("#profileName"),
+  connectionCount: document.querySelector("#connectionCount")
 };
 
-bindEvents();
-initialize();
+const fallback = {
+  profile: { name: "Alex Morgan", headline: "Product designer • Austin", connectionCount: 128 },
+  suggestions: [{ id: 1, name: "Sasha Lee", role: "Frontend engineer", connected: false }],
+  communities: ["Design Critique Club"],
+  events: ["Creator Meetup - Fri"],
+  trends: ["#BuildInPublic"],
+  messages: [],
+  posts: [{ id: 1, title: "Backend unavailable", content: "Run `dotnet run` to enable real DB-backed data.", mood: "⚠️", likes: 0, time: new Date().toISOString(), comments: [] }]
+};
 
-async function initialize() {
-  if (!token) {
-    setSignedInState(false);
-    return;
-  }
+let theme = localStorage.getItem("circlehub-theme") || "light";
+let offlineMode = false;
+init();
 
-  const hydrated = await loadDashboard();
-  if (!hydrated) {
-    clearSession();
-  }
-}
-
-function bindEvents() {
-  el.loginForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const payload = {
-      email: document.querySelector("#loginEmail").value,
-      password: document.querySelector("#loginPassword").value
-    };
-
-    await authenticate("/api/auth/login", payload, "Signed in successfully.");
-    el.loginForm.reset();
-  });
-
-  el.registerForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const payload = {
-      name: document.querySelector("#registerName").value,
-      email: document.querySelector("#registerEmail").value,
-      headline: document.querySelector("#registerHeadline").value,
-      password: document.querySelector("#registerPassword").value
-    };
-
-    await authenticate("/api/auth/register", payload, "Account created.");
-    el.registerForm.reset();
-  });
-
-  el.logoutBtn.addEventListener("click", async () => {
-    try {
-      await api("/api/auth/logout", { method: "POST" });
-    } catch {
-      // no-op: best-effort logout against backend
-    }
-
-    clearSession();
-    setNotice("Signed out.");
-  });
-
-  el.searchUsers.addEventListener("input", async () => {
-    if (!token) return;
-    await loadPeople(el.searchUsers.value);
-  });
-
-  el.searchFeed.addEventListener("input", async () => {
-    if (!token) return;
-    await loadFeed(el.searchFeed.value);
-  });
-
-  el.postForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    await api("/api/posts", {
-      method: "POST",
-      body: JSON.stringify({ content: el.postContent.value })
-    });
-    el.postForm.reset();
-    await loadFeed(el.searchFeed.value);
-  });
-
-  el.usersList.addEventListener("click", async (event) => {
-    const { action, id } = event.target.dataset;
-    if (!action || !id) return;
-
-    if (action === "request") {
-      await api(`/api/connections/request/${id}`, { method: "POST" });
-      await loadPeople(el.searchUsers.value);
-      return;
-    }
-
-    if (action === "accept") {
-      await api(`/api/connections/${id}/accept`, { method: "POST" });
-      await loadDashboard();
-      return;
-    }
-  });
-
-  el.pendingList.addEventListener("click", async (event) => {
-    const { action, id } = event.target.dataset;
-    if (!action || !id) return;
-
-    if (action === "accept") {
-      await api(`/api/connections/${id}/accept`, { method: "POST" });
-    }
-
-    if (action === "decline") {
-      await api(`/api/connections/${id}/decline`, { method: "POST" });
-    }
-
-    await loadDashboard();
-  });
-
-  el.connectionsList.addEventListener("click", async (event) => {
-    const userId = event.target.dataset.chat;
-    const userName = event.target.dataset.name;
-    if (!userId) return;
-
-    activeChatUserId = Number(userId);
-    el.chatWith.textContent = `Messages with ${userName}`;
-    await loadMessages();
-  });
-
-  el.messageForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (!activeChatUserId) return;
-
-    await api(`/api/messages/${activeChatUserId}`, {
-      method: "POST",
-      body: JSON.stringify({ content: el.messageInput.value })
-    });
-
-    el.messageInput.value = "";
-    await loadMessages();
-  });
-}
-
-async function authenticate(url, payload, successMessage) {
+async function init() {
+  document.body.classList.toggle("dark", theme === "dark");
   try {
-    const result = await api(url, { method: "POST", body: JSON.stringify(payload) }, false);
-    token = result.token;
-    localStorage.setItem(tokenKey, token);
-    setNotice(successMessage);
-    await loadDashboard();
+    await renderSidebar();
+    await renderFeed();
   } catch {
-    setNotice("Authentication request failed.");
+    offlineMode = true;
+    renderFallback();
   }
+  attachEvents();
 }
 
-async function loadDashboard() {
-  try {
-    const [me, bootstrap] = await Promise.all([api("/api/me"), api("/api/bootstrap")]);
-    setSignedInState(true);
-    el.meName.textContent = me.name;
-    el.meHeadline.textContent = me.headline;
-    el.meEmail.textContent = me.email;
-    renderPendingRequests(bootstrap.pendingRequests);
-    renderPeople(bootstrap.discoverPeople);
-    renderConnections(bootstrap.connections);
-    await loadFeed(el.searchFeed.value);
-    setupMessageRefresh();
-    return true;
-  } catch {
-    return false;
-  }
+function renderFallback() {
+  el.profileName.textContent = fallback.profile.name;
+  el.profileHeadline.textContent = fallback.profile.headline;
+  el.connectionCount.textContent = fallback.profile.connectionCount;
+  renderList(el.suggestionList, fallback.suggestions.map((s) => `<li><strong>${s.name}</strong><br><span>${s.role}</span></li>`));
+  renderList(el.communityList, fallback.communities.map((c) => `<li>• ${c}</li>`));
+  renderList(el.eventList, fallback.events.map((event) => `<li>${event}</li>`));
+  renderList(el.trendList, fallback.trends.map((tag) => `<li>${tag}</li>`));
+  renderList(el.messageLog, ["<li>Start backend to enable messaging.</li>"]);
+  renderStaticPosts(fallback.posts);
 }
 
-async function loadPeople(query = "") {
-  const people = await api(`/api/users?q=${encodeURIComponent(query)}`);
-  renderPeople(people);
+async function renderSidebar() {
+  const data = await api("/api/bootstrap");
+  el.profileName.textContent = data.profile.name;
+  el.profileHeadline.textContent = data.profile.headline;
+  el.connectionCount.textContent = data.profile.connectionCount;
+
+  renderList(el.suggestionList, data.suggestions.map((s) =>
+    `<li><strong>${s.name}</strong><br><span>${s.role}</span><br>${s.connected ? "Connected" : `<button data-connect="${s.id}" class="secondary">Connect</button>`}</li>`
+  ));
+  renderList(el.communityList, data.communities.map((c) => `<li>• ${c}</li>`));
+  renderList(el.eventList, data.events.map((event) => `<li>${event}</li>`));
+  renderList(el.trendList, data.trends.map((tag) => `<li>${tag}</li>`));
+  renderList(el.messageLog, data.messages.map((m) => `<li><strong>To ${m.to}:</strong> ${m.text}</li>`));
 }
 
-async function loadFeed(query = "") {
-  const posts = await api(`/api/feed?q=${encodeURIComponent(query)}`);
+async function renderFeed() {
+  const q = encodeURIComponent(el.searchInput.value || "");
+  const posts = await api(`/api/posts?q=${q}`);
+  renderStaticPosts(posts);
+}
+
+function renderStaticPosts(posts) {
   el.feedList.innerHTML = "";
-  el.feedEmpty.classList.toggle("hidden", posts.length > 0);
-
   posts.forEach((post) => {
     const node = el.postTemplate.content.firstElementChild.cloneNode(true);
-    node.querySelector(".post-author").textContent = post.author.name;
-    node.querySelector(".post-headline").textContent = post.author.headline;
-    node.querySelector(".post-time").textContent = new Date(post.createdAt).toLocaleString();
+    node.querySelector(".post-title").textContent = `${post.mood} ${post.title}`;
+    node.querySelector(".post-meta").textContent = new Date(post.time).toLocaleString();
     node.querySelector(".post-content").textContent = post.content;
+    const likeBtn = node.querySelector(".like-btn");
+    likeBtn.textContent = `Like (${post.likes})`;
+
+    if (!offlineMode) {
+      likeBtn.addEventListener("click", async () => {
+        await api(`/api/posts/${post.id}/like`, { method: "POST" });
+        await renderFeed();
+      });
+    }
+
+    const commentArea = node.querySelector(".comment-area");
+    node.querySelector(".comment-btn").addEventListener("click", () => commentArea.classList.toggle("hidden"));
+    renderList(node.querySelector(".comment-list"), post.comments.map((c) => `<li>💬 ${c}</li>`));
+
+    if (!offlineMode) {
+      node.querySelector(".comment-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const input = node.querySelector(".comment-input");
+        await api(`/api/posts/${post.id}/comments`, { method: "POST", body: JSON.stringify({ content: input.value }) });
+        input.value = "";
+        await renderFeed();
+      });
+    }
+
     el.feedList.append(node);
   });
 }
 
-async function loadMessages() {
-  if (!activeChatUserId) {
-    el.messageList.innerHTML = "<li>Select a connection to open a conversation.</li>";
-    return;
-  }
+function attachEvents() {
+  el.postForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (offlineMode) return;
+    await api("/api/posts", { method: "POST", body: JSON.stringify({ title: el.postTitle.value, content: el.postContent.value, mood: el.postMood.value }) });
+    el.postForm.reset();
+    await renderFeed();
+  });
 
-  const payload = await api(`/api/messages/${activeChatUserId}`);
-  el.chatWith.textContent = `Messages with ${payload.conversationWith.name}`;
-  el.messageList.innerHTML = payload.messages.length
-    ? payload.messages.map((message) => `
-        <li class="message-item ${message.direction}">
-          <span>${message.content}</span>
-          <small>${new Date(message.sentAt).toLocaleString()}</small>
-        </li>
-      `).join("")
-    : "<li>No messages yet.</li>";
+  el.suggestionList.addEventListener("click", async (event) => {
+    if (offlineMode) return;
+    const id = event.target.dataset.connect;
+    if (!id) return;
+    await api(`/api/suggestions/${id}/connect`, { method: "POST" });
+    await renderSidebar();
+  });
+
+  el.messageForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (offlineMode) return;
+    await api("/api/messages", { method: "POST", body: JSON.stringify({ to: el.messageTo.value, text: el.messageText.value }) });
+    el.messageForm.reset();
+    await renderSidebar();
+  });
+
+  el.searchInput.addEventListener("input", () => { if (!offlineMode) renderFeed(); });
+  el.themeToggle.addEventListener("click", () => {
+    theme = theme === "light" ? "dark" : "light";
+    localStorage.setItem("circlehub-theme", theme);
+    document.body.classList.toggle("dark", theme === "dark");
+  });
 }
 
-function renderPendingRequests(requests) {
-  el.pendingList.innerHTML = requests.length
-    ? requests.map((request) => `
-        <li>
-          <strong>${request.requester.name}</strong><br>
-          <span>${request.requester.headline}</span><br>
-          <div class="button-row">
-            <button data-action="accept" data-id="${request.id}">Accept</button>
-            <button class="secondary" data-action="decline" data-id="${request.id}">Decline</button>
-          </div>
-        </li>
-      `).join("")
-    : "<li>No pending connection requests.</li>";
+function renderList(target, items) {
+  target.innerHTML = items.join("");
 }
 
-function renderPeople(people) {
-  el.usersList.innerHTML = people.length
-    ? people.map((person) => {
-        const actionButton = person.incomingRequest
-          ? `<button data-action="accept" data-id="${person.connectionId}">Accept request</button>`
-          : person.relationship === "Not connected"
-            ? `<button data-action="request" data-id="${person.id}">Connect</button>`
-            : `<span class="badge muted">${person.relationship}</span>`;
-
-        return `
-          <li>
-            <strong>${person.name}</strong><br>
-            <span>${person.headline}</span><br>
-            <small>${person.email}</small><br>
-            ${actionButton}
-          </li>
-        `;
-      }).join("")
-    : "<li>No people found.</li>";
-}
-
-function renderConnections(connections) {
-  el.connectionsList.innerHTML = connections.length
-    ? connections.map((connection) => `
-        <li>
-          <button class="secondary connection-button" data-chat="${connection.id}" data-name="${connection.name}">
-            <strong>${connection.name}</strong><br>
-            <span>${connection.headline}</span>
-          </button>
-        </li>
-      `).join("")
-    : "<li>No accepted connections yet.</li>";
-
-  if (!connections.some((connection) => connection.id === activeChatUserId)) {
-    activeChatUserId = connections[0]?.id ?? null;
-  }
-
-  if (activeChatUserId) {
-    void loadMessages();
-  } else {
-    el.chatWith.textContent = "Messages";
-    el.messageList.innerHTML = "<li>Connect with someone to start messaging.</li>";
-  }
-}
-
-function setSignedInState(isSignedIn) {
-  el.authCard.classList.toggle("hidden", isSignedIn);
-  el.profileCard.classList.toggle("hidden", !isSignedIn);
-  el.pendingCard.classList.toggle("hidden", !isSignedIn);
-  el.feedArea.classList.toggle("hidden", !isSignedIn);
-  el.socialArea.classList.toggle("hidden", !isSignedIn);
-  el.logoutBtn.classList.toggle("hidden", !isSignedIn);
-}
-
-function setNotice(message) {
-  el.authStatus.textContent = message;
-}
-
-function clearSession() {
-  token = "";
-  activeChatUserId = null;
-  localStorage.removeItem(tokenKey);
-  clearInterval(refreshTimer);
-  refreshTimer = null;
-  setSignedInState(false);
-  el.chatWith.textContent = "Messages";
-  el.messageList.innerHTML = "<li>Select a connection to open a conversation.</li>";
-}
-
-function setupMessageRefresh() {
-  clearInterval(refreshTimer);
-  refreshTimer = setInterval(() => {
-    if (activeChatUserId) {
-      void loadMessages();
-    }
-  }, 15000);
-}
-
-async function api(url, options = {}, requiresAuth = true) {
-  const headers = {
-    "Content-Type": "application/json",
-    ...(options.headers || {})
-  };
-
-  if (requiresAuth && token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  const response = await fetch(url, { ...options, headers });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-
-  if (response.status === 204) {
-    return null;
-  }
-
+async function api(url, options = {}) {
+  const response = await fetch(url, { headers: { "Content-Type": "application/json" }, ...options });
+  if (!response.ok) throw new Error(`API error: ${response.status}`);
+  if (response.status === 204) return null;
   return response.json();
 }

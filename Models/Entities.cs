@@ -1,49 +1,55 @@
 namespace SocialMediaApp.Models;
 
-public static class ConnectionStatuses
+public class UserProfile
 {
-    public const string Pending = "Pending";
-    public const string Accepted = "Accepted";
-    public const string Declined = "Declined";
+    public int Id { get; set; }
+    public string Name { get; set; } = "Alex Morgan";
+    public string Headline { get; set; } = "Product designer • Austin";
+    public int ConnectionCount { get; set; } = 128;
 }
 
-public class User
+public class Suggestion
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string PasswordHash { get; set; } = string.Empty;
-    public string PasswordSalt { get; set; } = string.Empty;
-    public string Headline { get; set; } = "Building thoughtful communities";
-    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public string Role { get; set; } = string.Empty;
+    public bool Connected { get; set; }
 }
 
-public class SessionToken
+public class Community
 {
     public int Id { get; set; }
-    public int UserId { get; set; }
-    public User? User { get; set; }
-    public string Token { get; set; } = string.Empty;
-    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
-    public DateTimeOffset ExpiresAt { get; set; } = DateTimeOffset.UtcNow.AddDays(7);
+    public string Name { get; set; } = string.Empty;
 }
 
-public class Connection
+public class EventItem
 {
     public int Id { get; set; }
-    public int RequesterId { get; set; }
-    public User? Requester { get; set; }
-    public int AddresseeId { get; set; }
-    public User? Addressee { get; set; }
-    public string Status { get; set; } = ConnectionStatuses.Pending;
-    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public string Name { get; set; } = string.Empty;
+}
+
+public class Trend
+{
+    public int Id { get; set; }
+    public string Tag { get; set; } = string.Empty;
 }
 
 public class Post
 {
     public int Id { get; set; }
-    public int AuthorId { get; set; }
-    public User? Author { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    public string Mood { get; set; } = "📢 Sharing";
+    public int Likes { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public List<Comment> Comments { get; set; } = [];
+}
+
+public class Comment
+{
+    public int Id { get; set; }
+    public int PostId { get; set; }
+    public Post? Post { get; set; }
     public string Content { get; set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
@@ -51,10 +57,7 @@ public class Post
 public class Message
 {
     public int Id { get; set; }
-    public int SenderId { get; set; }
-    public User? Sender { get; set; }
-    public int RecipientId { get; set; }
-    public User? Recipient { get; set; }
+    public string Recipient { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public DateTimeOffset SentAt { get; set; } = DateTimeOffset.UtcNow;
 }

@@ -1,28 +1,27 @@
-# CircleHub (ASP.NET Core + SQLite)
+# CircleHub (C# + SQLite)
 
-CircleHub is a Facebook-style social network prototype built with **ASP.NET Core** and **SQLite**, with a real backend for authentication, connection management, private feed visibility, and direct messaging.
+CircleHub is a Facebook-like (but not Facebook-copy) social media web app built with **ASP.NET Core (C#)** and **SQLite**.
 
-## Important repo note
+## What changed
 
-I checked this repository before making changes and there is currently **no local `main` branch and no configured git remote**, so there was nothing available to pull or merge from `main` in this environment. The latest visible branch history only contained the `work` branch. This implementation was applied directly on top of the current branch state.
+This version is no longer front-end-only. Posts, comments, likes, connection actions, and messages are persisted in a database via backend APIs.
 
-## What this app now supports
-
-- User registration and sign-in
-- Session token authentication using `Authorization: Bearer <token>`
-- User discovery/search
-- Connection requests, accept, and decline actions
-- Feed visibility restricted to **you + accepted connections only**
-- Post creation persisted in SQLite
-- Direct messages restricted to accepted connections
-- API discovery endpoint at `GET /api`
-- Seed data for local demo users and sample conversations
-
-## Tech stack
+## Stack
 
 - ASP.NET Core Minimal API (`net8.0`)
-- Entity Framework Core + SQLite (`circlehub.db`)
-- Static frontend in `wwwroot`
+- Entity Framework Core + SQLite
+- HTML/CSS/Vanilla JS frontend served from `wwwroot`
+
+## Features
+
+- Create posts with mood tags
+- Like posts and add comments
+- Send quick messages
+- Connect with suggested people (connection count updates)
+- Search/filter posts
+- Communities, events, and trends side panels
+- Light/dark mode (theme preference saved locally)
+- Data persisted in `circlehub.db`
 
 ## Run locally
 
@@ -31,30 +30,14 @@ dotnet restore
 dotnet run
 ```
 
-Then open the application URL printed by ASP.NET Core.
+Then open the URL shown in the console (typically `http://localhost:5000` or `https://localhost:5001`).
 
-## Primary API endpoints
+## API overview
 
-- `GET /api`
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-- `GET /api/me`
-- `GET /api/bootstrap`
-- `GET /api/users?q=...`
-- `POST /api/connections/request/{userId}`
-- `POST /api/connections/{connectionId}/accept`
-- `POST /api/connections/{connectionId}/decline`
-- `GET /api/feed?q=...`
-- `POST /api/posts`
-- `GET /api/messages/{userId}`
-- `POST /api/messages/{userId}`
-
-## Seed users
-
-Use password `password123` for each of these:
-
-- `alex@circlehub.dev`
-- `sasha@circlehub.dev`
-- `derek@circlehub.dev`
-- `priya@circlehub.dev`
+- `GET /api/bootstrap` – profile + sidebar data + recent messages
+- `GET /api/posts?q=...` – fetch posts (with optional search)
+- `POST /api/posts` – create post
+- `POST /api/posts/{id}/like` – like post
+- `POST /api/posts/{id}/comments` – add comment
+- `POST /api/suggestions/{id}/connect` – connect with suggested user
+- `POST /api/messages` – send message
