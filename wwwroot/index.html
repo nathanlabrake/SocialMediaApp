@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CircleHub</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">CircleHub</div>
+      <input id="searchUsers" type="search" placeholder="Search people by name or email" />
+      <div class="toolbar-actions">
+        <a class="secondary api-link" href="/api" target="_blank" rel="noreferrer">API</a>
+        <button id="logoutBtn" class="secondary hidden">Logout</button>
+      </div>
+    </header>
+
+    <main class="layout app-layout">
+      <aside class="panel left-panel">
+        <section class="card" id="authCard">
+          <h2>Welcome to CircleHub</h2>
+          <p>A private social app where posts are shared with accepted connections only.</p>
+
+          <form id="loginForm" class="stack-form">
+            <h3>Sign In</h3>
+            <input id="loginEmail" type="email" placeholder="Email" required />
+            <input id="loginPassword" type="password" placeholder="Password" required />
+            <button type="submit">Sign In</button>
+          </form>
+
+          <form id="registerForm" class="stack-form">
+            <h3>Create Account</h3>
+            <input id="registerName" placeholder="Name" required />
+            <input id="registerEmail" type="email" placeholder="Email" required />
+            <input id="registerHeadline" placeholder="Headline (optional)" />
+            <input id="registerPassword" type="password" placeholder="Password" required />
+            <button type="submit">Register</button>
+          </form>
+
+          <div class="hint-box">
+            <strong>Seed accounts</strong>
+            <ul class="clean-list small">
+              <li>alex@circlehub.dev / password123</li>
+              <li>sasha@circlehub.dev / password123</li>
+            </ul>
+          </div>
+          <p id="authStatus" class="status-text"></p>
+        </section>
+
+        <section class="card hidden" id="profileCard">
+          <h2 id="meName">Your profile</h2>
+          <p id="meHeadline"></p>
+          <p id="meEmail" class="small"></p>
+        </section>
+
+        <section class="card hidden" id="pendingCard">
+          <h2>Pending requests</h2>
+          <ul id="pendingList" class="clean-list"></ul>
+        </section>
+      </aside>
+
+      <section class="feed hidden" id="feedArea">
+        <article class="card composer">
+          <h2>Share with your network</h2>
+          <form id="postForm" class="stack-form">
+            <textarea id="postContent" maxlength="280" required placeholder="Post an update for your accepted connections"></textarea>
+            <button type="submit">Publish Post</button>
+          </form>
+        </article>
+
+        <section class="card">
+          <div class="section-heading">
+            <h2>Connections feed</h2>
+            <input id="searchFeed" type="search" placeholder="Filter posts" />
+          </div>
+          <div id="feedEmpty" class="empty-state hidden">No posts yet from you or your connections.</div>
+          <section id="feedList" class="feed-list"></section>
+        </section>
+      </section>
+
+      <aside class="panel right-panel hidden" id="socialArea">
+        <section class="card">
+          <h2>Discover people</h2>
+          <ul id="usersList" class="clean-list"></ul>
+        </section>
+
+        <section class="card">
+          <h2>Your connections</h2>
+          <ul id="connectionsList" class="clean-list"></ul>
+        </section>
+
+        <section class="card">
+          <h2 id="chatWith">Messages</h2>
+          <ul id="messageList" class="clean-list small message-list"></ul>
+          <form id="messageForm" class="stack-form">
+            <input id="messageInput" placeholder="Write a message" required />
+            <button type="submit">Send</button>
+          </form>
+        </section>
+      </aside>
+    </main>
+
+    <template id="postTemplate">
+      <article class="card post">
+        <header class="post-header">
+          <div>
+            <h3 class="post-author"></h3>
+            <p class="post-headline small"></p>
+          </div>
+          <span class="post-time"></span>
+        </header>
+        <p class="post-content"></p>
+        <div class="badge">Connections only</div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
